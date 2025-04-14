@@ -19,6 +19,9 @@
           <el-form-item prop="username">
             <el-input v-model="formData.username" placeholder="用户名" prefix-icon="User" class="github-input" />
           </el-form-item>
+          <el-form-item prop="email" v-if="!isLogin">
+            <el-input v-model="formData.email" placeholder="邮箱" prefix-icon="Message" class="github-input" />
+          </el-form-item>
           <el-form-item prop="password">
             <el-input v-model="formData.password" type="password" placeholder="密码" prefix-icon="Lock" class="github-input" />
           </el-form-item>
@@ -26,7 +29,13 @@
             <el-input v-model="formData.confirmPassword" type="password" placeholder="确认密码" prefix-icon="Lock" class="github-input" />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="handleSubmit" class="submit-button">{{ isLogin ? '登录' : '注册' }}</el-button>
+            <el-button 
+  type="primary" 
+  @click="handleSubmit" 
+  class="submit-button"
+  :loading="isLoading"
+  :disabled="isLoading"
+>{{ isLogin ? '登录' : '注册' }}</el-button>
           </el-form-item>
           <div class="form-footer">
             <el-button link @click="toggleMode" class="toggle-button">{{ isLogin ? '没有账号？去注册' : '已有账号？去登录' }}</el-button>
@@ -43,12 +52,17 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { Back } from '@element-plus/icons-vue'
+import { Back, Message } from '@element-plus/icons-vue'
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
+import { useUserStore } from '../store/user'
 
 const router = useRouter()
+const userStore = useUserStore()
 const formRef = ref(null)
 const isLogin = ref(true)
 const dialogVisible = ref(true)
+const isLoading = ref(false)
 
 const closeDialog = () => {
   dialogVisible.value = false
@@ -61,12 +75,17 @@ const goToHome = () => {
 
 const formData = reactive({
   username: '',
+  email: '',
   password: '',
   confirmPassword: ''
 })
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+  ],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
@@ -88,16 +107,38 @@ const handleSubmit = async () => {
   
   try {
     await formRef.value.validate()
-    // TODO: 调用后端API进行登录或注册
-    if (isLogin.value) {
-      // 登录逻辑
-      console.log('登录', formData)
-    } else {
-      // 注册逻辑
-      console.log('注册', formData)
+    isLoading.value = true
+    
+    try {
+      const url = isLogin.value ? '/api/user/login' : '/api/user/register'
+      const response = await axios.post(url, {
+        username: formData.username,
+        ...(isLogin.value ? {} : { email: formData.email }),
+        password: formData.password
+      })
+
+      if (response.data.code === 200) {
+        if (isLogin.value) {
+          userStore.setUserInfo(response.data.data?.nsUser || {})
+          userStore.setToken(response.data.data?.token || '')
+          ElMessage.success('登录成功')
+          await router.push('/dashboard')
+        } else {
+          ElMessage.success('注册成功')
+          isLogin.value = true
+          formRef.value?.resetFields()
+        }
+      } else {
+        ElMessage.error(response.data.message || '操作失败')
+      }
+    } catch (error) {
+      const message = error.response?.data?.message || '请求失败，请稍后重试'
+      ElMessage.error(message)
+    } finally {
+      isLoading.value = false
     }
-  } catch (error) {
-    console.error('表单验证失败', error)
+  } catch (formError) {
+    console.error('表单验证失败:', formError)
   }
 }
 

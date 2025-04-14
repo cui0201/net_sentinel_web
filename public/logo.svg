@@ -1,0 +1,23 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 盾牌主体 -->
+  <path d="M24 4L8 10V22C8 32.6 14.8 42.4 24 45C33.2 42.4 40 32.6 40 22V10L24 4Z" fill="#000000"/>
+  
+  <!-- 网络连接图案 -->
+  <path d="M24 15C19 15 15 19 15 24C15 29 19 33 24 33C29 33 33 29 33 24C33 19 29 15 24 15Z" stroke="white" stroke-width="2" fill="none"/>
+  
+  <!-- 中心监控图标 -->
+  <circle cx="24" cy="24" r="2" fill="white"/>
+  
+  <!-- 脉冲波纹效果 -->
+  <circle cx="24" cy="24" r="5" stroke="white" stroke-width="1.5" fill="none" opacity="0.6">
+    <animate attributeName="r" from="5" to="8" dur="1.5s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" from="0.6" to="0" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- 网络节点连接线 -->
+  <path d="M24 19L19 24L24 29L29 24L24 19" stroke="white" stroke-width="1.5" fill="none"/>
+  
+  <!-- 装饰性网格线 -->
+  <path d="M20 24H28" stroke="white" stroke-width="1" opacity="0.4"/>
+  <path d="M24 20V28" stroke="white" stroke-width="1" opacity="0.4"/>
+</svg>
