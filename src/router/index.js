@@ -6,8 +6,8 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: () => import('../views/Home.vue')
+      name: 'rule',
+      component: () => import('../views/Rule.vue')
     },
     {
       path: '/login',
@@ -23,13 +23,13 @@ const router = createRouter({
     {
       path: '/rules',
       name: 'rules',
-      component: () => import('../views/Home.vue'),
+      component: () => import('../views/Rule.vue'),
       meta: { requiresAuth: true }
     },
     {
-      path: '/users',
-      name: 'users',
-      component: () => import('../views/Home.vue'),
+      path: '/alerts',
+      name: 'alerts',
+      component: () => import('../views/Alert.vue'),
       meta: { requiresAuth: true }
     }
   ]

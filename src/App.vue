@@ -36,11 +36,11 @@
           </el-menu-item>
           <el-menu-item index="/rules">
             <el-icon><Document /></el-icon>
-            <span>规则定制</span>
+            <span>日志查询</span>
           </el-menu-item>
-          <el-menu-item index="/users">
-            <el-icon><User /></el-icon>
-            <span>用户管理</span>
+          <el-menu-item index="/alerts">
+            <el-icon><Bell /></el-icon>
+            <span>告警管理</span>
           </el-menu-item>
         </el-menu>
       </el-aside>
