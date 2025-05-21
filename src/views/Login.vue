@@ -119,8 +119,12 @@ const handleSubmit = async () => {
 
       if (response.data.code === 200) {
         if (isLogin.value) {
-          userStore.setUserInfo(response.data.data?.nsUser || {})
+          userStore.setUserInfo(response.data.data?.nsUserDO || {})
           userStore.setToken(response.data.data?.token || '')
+          
+          // 打印用户信息
+          console.log('登录成功，用户信息:', userStore.userInfo)
+          
           ElMessage.success('登录成功')
           await router.push('/dashboard')
         } else {

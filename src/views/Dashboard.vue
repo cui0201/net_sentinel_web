@@ -1,11 +1,13 @@
 <template>
-  <div class="dashboard">
-    <div class="alert-overview">
-      <el-row :gutter="24">
+  <div class="dashboard-container">
+    <!-- 告警监控部分 -->
+    <div class="dashboard">
+      <!-- 告警概览 -->
+      <el-row :gutter="24" class="alert-overview">
         <el-col :span="6" v-for="(stat, index) in alertStats" :key="index">
-          <el-card class="stat-card" :body-style="{ padding: '20px' }">
+          <el-card class="stat-card" shadow="hover">
             <div class="stat-content">
-              <el-icon :size="32" :style="{ color: stat.color }">
+              <el-icon :style="{ color: stat.color, fontSize: '32px' }">
                 <component :is="stat.icon" />
               </el-icon>
               <div class="stat-info">
@@ -16,14 +18,13 @@
           </el-card>
         </el-col>
       </el-row>
-    </div>
-
-    <div class="chart-section">
-      <el-card>
+      
+      <!-- 告警趋势图 -->
+      <el-card class="chart-section">
         <template #header>
           <div class="chart-header">
-            <span class="chart-title">告警趋势分析</span>
-            <el-radio-group v-model="timeRange" size="small">
+            <div class="chart-title">告警趋势</div>
+            <el-radio-group v-model="timeRange" size="small" @change="handleTimeRangeChange">
               <el-radio-button label="day">今日</el-radio-button>
               <el-radio-button label="week">本周</el-radio-button>
               <el-radio-button label="month">本月</el-radio-button>
@@ -32,33 +33,32 @@
         </template>
         <div ref="trendChartRef" class="trend-chart"></div>
       </el-card>
-    </div>
-
-    <div class="alert-details">
+      
+      <!-- 最新告警列表 -->
       <el-card>
         <template #header>
           <div class="table-header">
-            <span class="table-title">实时告警列表</span>
+            <div class="table-title">最新告警</div>
             <el-button type="primary" size="small" @click="refreshAlerts">刷新</el-button>
           </div>
         </template>
-        <el-table :data="alertList" style="width: 100%">
-          <el-table-column width="50">
-            <template #default="{ row }">
-              <div class="alert-level-icon" :style="{ backgroundColor: getLevelColor(row.level) }"></div>
-            </template>
-          </el-table-column>
+        <el-table :data="alertList" style="width: 100%" border>
           <el-table-column prop="time" label="时间" width="180" />
           <el-table-column prop="level" label="级别" width="100">
             <template #default="{ row }">
-              <el-tag :type="getLevelType(row.level)" size="small">{{ row.level }}</el-tag>
+              <el-tag :type="getLevelType(row.level)" size="small">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                  <div class="alert-level-icon" :style="{ backgroundColor: getLevelColor(row.level) }"></div>
+                  {{ row.level }}
+                </div>
+              </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="device" label="设备" width="120" />
+          <el-table-column prop="device" label="设备" width="150" />
           <el-table-column prop="description" label="描述" />
-          <el-table-column label="操作" width="120">
+          <el-table-column label="操作" width="100">
             <template #default="{ row }">
-              <el-button link type="primary" @click="handleDetail(row)">详情</el-button>
+              <el-button type="text" size="small" @click="handleDetail(row)">详情</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -68,6 +68,7 @@
 </template>
 
 <script setup>
+import { Monitor, Search, Setting, DataAnalysis } from '@element-plus/icons-vue'
 import { ref, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import { Warning, Bell, CircleCheck, InfoFilled } from '@element-plus/icons-vue'
@@ -218,8 +219,56 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.dashboard {
+.dashboard-container {
   padding: 24px;
+}
+
+.welcome-card {
+  margin-bottom: 24px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.system-intro {
+  line-height: 1.6;
+}
+
+.system-intro h3 {
+  margin-top: 25px;
+  margin-bottom: 15px;
+  color: #409EFF;
+}
+
+.feature-card {
+  height: 100%;
+  transition: all 0.3s;
+}
+
+.feature-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.feature-header {
+  display: flex;
+  align-items: center;
+}
+
+.feature-header .el-icon {
+  margin-right: 8px;
+  font-size: 18px;
+  color: #409EFF;
+}
+
+.footer-info {
+  text-align: center;
+  color: #909399;
+  font-size: 14px;
+  margin-top: 20px;
 }
 
 .alert-overview {

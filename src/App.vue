@@ -9,8 +9,8 @@
         <div v-if="userStore.isLoggedIn" class="user-info">
           <el-dropdown>
             <span class="user-dropdown">
+              {{userStore.username}}
               <el-icon><User /></el-icon>
-              {{ userStore.username }}
             </span>
             <template #dropdown>
               <el-dropdown-menu>
@@ -30,6 +30,10 @@
           @select="handleSelect"
           :router="true"
         >
+          <el-menu-item index="/introduce">
+            <el-icon><InfoFilled /></el-icon>
+            <span>系统介绍</span>
+          </el-menu-item>
           <el-menu-item index="/dashboard">
             <el-icon><Bell /></el-icon>
             <span>实时告警</span>
@@ -52,14 +56,26 @@
 </template>
 
 <script setup>
-import { Monitor, Setting, User } from '@element-plus/icons-vue'
+import { Monitor, Setting, User, InfoFilled, Document, Bell } from '@element-plus/icons-vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from './store/user'
-import { computed } from 'vue'
+import { computed, watch, onMounted } from 'vue'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+
+// 监听用户信息变化
+watch(() => userStore.userInfo, (newUserInfo) => {
+  console.log('用户信息已更新:', newUserInfo)
+}, { deep: true })
+
+// 在组件挂载时打印用户信息
+onMounted(() => {
+  console.log('当前用户信息:', userStore.userInfo)
+  console.log('用户名:', userStore.username)
+  console.log('登录状态:', userStore.isLoggedIn)
+})
 
 const activeMenu = computed(() => route.path)
 
@@ -152,6 +168,17 @@ const handleLogout = () => {
   gap: 8px;
   color: #ffffff;
   cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.user-dropdown:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.user-icon {
+  margin-right: 4px;
 }
 
 .login-button {

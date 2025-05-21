@@ -1,206 +1,296 @@
 <template>
   <div class="rule-container">
-    <el-card class="rule-card">
+    <el-card class="log-card">
       <template #header>
         <div class="card-header">
-          <span>事件日志查询</span>
+          <h3>日志查询</h3>
         </div>
       </template>
-
-      <div class="search-area">
-        <el-input
-          v-model="searchQuery"
-          placeholder="搜索日志内容"
-          style="width: 300px"
-          clearable
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+      
+      <!-- 查询条件部分 -->
+      <el-form :model="searchForm" label-width="100px" class="search-form">
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="日志内容">
+              <el-input v-model="searchForm.logContent" placeholder="请输入日志内容关键字"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="日志级别">
+              <el-select v-model="searchForm.logLevel" placeholder="请选择日志级别" clearable style="width: 100%">
+                <el-option label="INFO" value="INFO"></el-option>
+                <el-option label="WARNING" value="WARNING"></el-option>
+                <el-option label="ERROR" value="ERROR"></el-option>
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="时间范围">
+              <el-date-picker
+                v-model="dateRange"
+                type="datetimerange"
+                range-separator="至"
+                start-placeholder="开始时间"
+                end-placeholder="结束时间"
+                format="YYYY-MM-DD HH:mm:ss"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              ></el-date-picker>
+            </el-form-item>
+          </el-col>
+        </el-row>
         
-        <el-date-picker
-          v-model="dateRange"
-          type="daterange"
-          range-separator="至"
-          start-placeholder="开始日期"
-          end-placeholder="结束日期"
-          style="margin-left: 16px; width: 350px"
-        />
+        <el-form-item>
+          <el-button type="primary" @click="searchLogs">查询</el-button>
+          <el-button @click="resetForm">重置</el-button>
+        </el-form-item>
+      </el-form>
+      
+      <el-divider content-position="center">查询结果</el-divider>
+      
+      <!-- 查询结果部分 -->
+      <div class="result-section">
+        <el-table :data="logData" style="width: 100%" border v-loading="loading">
+          <el-table-column prop="timestamp" label="时间" width="280" align="center"></el-table-column>
+          <el-table-column prop="logLevel" label="级别" width="150" align="center">
+            <template #default="{ row }">
+              <el-tag :type="getLogLevelType(row.logLevel)">{{ row.logLevel }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="deviceName" label="设备名称" width="120" align="center"></el-table-column>
+          <el-table-column prop="eventType" label="事件类型" width="250" align="center"></el-table-column>
+          <el-table-column label="操作" width="150" fixed="right" align="center"> 
+            <template #default="{ row }">
+              <el-button type="primary" size="big" @click="showLogDetail(row)">
+                <el-icon><View /></el-icon>
+                  详情
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
         
-        <el-select
-          v-model="logLevel"
-          placeholder="日志级别"
-          clearable
-          style="margin-left: 16px; width: 120px"
-        >
-          <el-option label="ERROR" value="ERROR" />
-          <el-option label="WARN" value="WARN" />
-          <el-option label="INFO" value="INFO" />
-        </el-select>
+        <div class="pagination-container">
+          <el-pagination
+            v-model:current-page="searchForm.currentPage"
+            v-model:page-size="searchForm.pageSize"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="total"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          ></el-pagination>
+        </div>
       </div>
-
-      <el-table :data="filteredLogs" style="width: 100%" border>
-        <el-table-column prop="timestamp" label="时间" width="180" />
-        <el-table-column prop="level" label="级别" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getLevelTagType(row.level)">
-              {{ row.level }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="source" label="来源" width="120" />
-        <el-table-column prop="message" label="事件内容" />
-        <el-table-column label="操作" width="120">
-          <template #default="{ row }">
-            <el-button size="small" @click="showDetail(row)">详情</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <div class="pagination">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :total="totalLogs"
-          layout="prev, pager, next, sizes"
-          :page-sizes="[10, 20, 50, 100]"
-          :background="true"
-        />
-      </div>
-
-      <!-- 日志详情弹窗 -->
-      <el-dialog v-model="detailVisible" title="日志详情" width="60%">
-        <el-descriptions :column="1" border v-if="currentLog">
-          <el-descriptions-item label="时间">{{ currentLog.timestamp }}</el-descriptions-item>
-          <el-descriptions-item label="级别">
-            <el-tag :type="getLevelTagType(currentLog.level)">
-              {{ currentLog.level }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="来源">{{ currentLog.source }}</el-descriptions-item>
-          <el-descriptions-item label="事件内容">{{ currentLog.message }}</el-descriptions-item>
-          <el-descriptions-item label="原始日志">
-            <pre>{{ currentLog.raw }}</pre>
-          </el-descriptions-item>
-          <el-descriptions-item label="解析字段" v-if="currentLog.fields">
-            <el-table :data="currentLog.fields" border>
-              <el-table-column prop="name" label="字段名" width="150" />
-              <el-table-column prop="value" label="值" />
-            </el-table>
-          </el-descriptions-item>
-        </el-descriptions>
-      </el-dialog>
     </el-card>
+    
+    <!-- 日志详情对话框 -->
+    <el-dialog
+      v-model="dialogVisible"
+      title="日志详情"
+      width="70%"
+      destroy-on-close
+    >
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="ID">{{ currentLog.id }}</el-descriptions-item>
+        <el-descriptions-item label="时间">{{ currentLog.timestamp }}</el-descriptions-item>
+        <el-descriptions-item label="级别">
+          <el-tag :type="getLogLevelType(currentLog.logLevel)">{{ currentLog.logLevel }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="设备类型">{{ currentLog.deviceType }}</el-descriptions-item>
+        <el-descriptions-item label="设备名称">{{ currentLog.deviceName }}</el-descriptions-item>
+        <el-descriptions-item label="源IP">{{ currentLog.sourceIp }}</el-descriptions-item>
+        <el-descriptions-item label="目标IP">{{ currentLog.destinationIp }}</el-descriptions-item>
+        <el-descriptions-item label="源端口">{{ currentLog.sourcePort }}</el-descriptions-item>
+        <el-descriptions-item label="目标端口">{{ currentLog.destinationPort }}</el-descriptions-item>
+        <el-descriptions-item label="协议">{{ currentLog.protocol }}</el-descriptions-item>
+        <el-descriptions-item label="事件类型">{{ currentLog.eventType }}</el-descriptions-item>
+        <el-descriptions-item label="描述" :span="2">{{ currentLog.description }}</el-descriptions-item>
+        <el-descriptions-item label="原始日志" :span="2">
+          <el-input
+            type="textarea"
+            :rows="3"
+            v-model="currentLog.logText"
+            readonly
+          ></el-input>
+        </el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogVisible = false">关闭</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { ref, reactive, watch } from 'vue'
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '../store/user'
+import { View } from '@element-plus/icons-vue'  // 导入 View 图标
 
-// 示例日志数据
-const logsList = ref([
-  {
-    id: 1,
-    timestamp: '2023-05-15 14:30:22',
-    level: 'ERROR',
-    source: 'server-01',
-    message: 'CPU usage 95%',
-    raw: '2023-05-15 14:30:22 [ERROR] CPU usage 95% on server-01',
-    fields: [
-      { name: 'metric', value: 'CPU' },
-      { name: 'value', value: '95%' }
-    ]
-  },
-  {
-    id: 2,
-    timestamp: '2023-05-15 13:45:10',
-    level: 'WARN',
-    source: 'server-02',
-    message: 'Memory usage 8%',
-    raw: '2023-05-15 13:45:10 [WARN] Memory usage 8% on server-02',
-    fields: [
-      { name: 'metric', value: 'Memory' },
-      { name: 'value', value: '8%' }
-    ]
-  }
-])
-
-const searchQuery = ref('')
-const dateRange = ref([])
-const logLevel = ref('')
-const currentPage = ref(1)
-const pageSize = ref(10)
-const detailVisible = ref(false)
-const currentLog = ref(null)
-
-const filteredLogs = computed(() => {
-  let result = logsList.value
-  
-  // 按搜索词过滤
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(log => 
-      log.message.toLowerCase().includes(query) ||
-      log.source.toLowerCase().includes(query)
-    )
-  }
-  
-  // 按日志级别过滤
-  if (logLevel.value) {
-    result = result.filter(log => log.level === logLevel.value)
-  }
-  
-  // 按日期范围过滤
-  if (dateRange.value && dateRange.value.length === 2) {
-    const [start, end] = dateRange.value
-    result = result.filter(log => {
-      const logDate = new Date(log.timestamp)
-      return logDate >= start && logDate <= end
-    })
-  }
-  
-  return result.slice(
-    (currentPage.value - 1) * pageSize.value,
-    currentPage.value * pageSize.value
-  )
+const router = useRouter()
+// 搜索表单数据
+const searchForm = reactive({
+  logContent: '',
+  beginTime: '',
+  endTime: '',
+  logLevel: '',
+  currentPage: 1,
+  pageNum: 1,
+  pageSize: 10,
+  orderBy: '',
+  order: ''
 })
 
-const totalLogs = computed(() => logsList.value.length)
+// 日期范围选择器
+const dateRange = ref([])
 
-const getLevelTagType = (level) => {
-  const map = { ERROR: 'danger', WARN: 'warning', INFO: 'info' }
-  return map[level] || ''
+// 监听日期范围变化，更新搜索表单中的开始和结束时间
+watch(dateRange, (newVal) => {
+  if (newVal && newVal.length === 2) {
+    searchForm.beginTime = newVal[0]
+    searchForm.endTime = newVal[1]
+  } else {
+    searchForm.beginTime = ''
+    searchForm.endTime = ''
+  }
+})
+
+// 日志数据
+const logData = ref([])
+const total = ref(0)
+const loading = ref(false)
+
+// 日志详情对话框
+const dialogVisible = ref(false)
+const currentLog = ref({})
+
+// 显示日志详情
+const showLogDetail = (row) => {
+  currentLog.value = row
+  dialogVisible.value = true
 }
 
-const showDetail = (log) => {
-  currentLog.value = log
-  detailVisible.value = true
+// 获取日志级别对应的标签类型
+const getLogLevelType = (level) => {
+  const types = {
+    'INFO': 'info',
+    'WARNING': 'warning',
+    'ERROR': 'danger'
+  }
+  return types[level] || 'info'
 }
+
+// 查询日志
+const searchLogs = async () => {
+  loading.value = true
+  try {
+    // 确保页码同步
+    searchForm.pageNum = searchForm.currentPage
+    
+    // 从用户存储中获取 token
+    const userStore = useUserStore()
+    const token = userStore.token
+    
+    if (!token) {
+      ElMessage.error('未登录或登录已过期，请重新登录')
+      router.push('/login')
+      return
+    }
+    
+    const response = await axios.post('/api/log/logSearch', searchForm, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (response.data.code === 200) {
+      logData.value = response.data.data.records
+      total.value = response.data.data.total
+      
+      if (logData.value.length === 0) {
+        ElMessage.info('未查询到符合条件的日志')
+      }
+    } else {
+      ElMessage.error(response.data.message || '查询失败')
+    }
+  } catch (error) {
+    console.error('查询日志出错:', error)
+    if (error.response && error.response.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+      router.push('/login')
+    } else {
+      ElMessage.error('查询日志出错，请稍后重试')
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+// 重置表单
+const resetForm = () => {
+  searchForm.logContent = ''
+  searchForm.logLevel = ''
+  dateRange.value = []
+  searchForm.beginTime = ''
+  searchForm.endTime = ''
+  searchForm.currentPage = 1
+  searchForm.pageNum = 1
+  searchForm.pageSize = 10
+  searchForm.orderBy = ''
+  searchForm.order = ''
+}
+
+// 处理每页显示数量变化
+const handleSizeChange = (size) => {
+  searchForm.pageSize = size
+  searchLogs()
+}
+
+// 处理页码变化
+const handleCurrentChange = (page) => {
+  searchForm.currentPage = page
+  searchForm.pageNum = page
+  searchLogs()
+}
+
+// 初始加载
+searchLogs()
 </script>
 
 <style scoped>
-.search-area {
+.rule-container {
+  padding: 20px;
+}
+
+.log-card {
+  margin-bottom: 20px;
+}
+
+.card-header {
   display: flex;
-  margin-bottom: 16px;
+  justify-content: space-between;
   align-items: center;
 }
 
-.pagination {
-  margin-top: 16px;
-  display: flex;
-  justify-content: center;
-  padding: 12px 0;
-  background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+.search-form {
+  margin-bottom: 10px;
 }
 
-pre {
-  background-color: #f5f7fa;
-  padding: 12px;
-  border-radius: 4px;
-  overflow-x: auto;
+.result-section {
+  margin-top: 20px;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.el-descriptions {
+  width: 100%;
 }
 </style>
