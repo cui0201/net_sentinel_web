@@ -12,7 +12,7 @@
               </el-icon>
               <div class="stat-info">
                 <div class="stat-value" :style="{ color: stat.color }">{{ stat.value }}</div>
-                <div class="stat-label">{{ stat.label }}</div>
+                <div class="stat-label" :style="{ color: stat.color }">{{ stat.label }}</div>
               </div>
             </div>
           </el-card>
@@ -43,19 +43,19 @@
           </div>
         </template>
         <el-table :data="alertList" style="width: 100%" border>
-          <el-table-column prop="time" label="时间" width="180" />
-          <el-table-column prop="level" label="级别" width="100">
+          <el-table-column prop="alertTime" label="时间" width="180" />
+          <el-table-column prop="alertGrade" label="级别" width="150">
             <template #default="{ row }">
-              <el-tag :type="getLevelType(row.level)" size="small">
+              <el-tag :type="getLevelType(row.alertGrade)" size="small">
                 <div style="display: flex; align-items: center; gap: 5px;">
-                  <div class="alert-level-icon" :style="{ backgroundColor: getLevelColor(row.level) }"></div>
-                  {{ row.level }}
+                  <div class="alert-level-icon" :style="{ backgroundColor: getLevelColor(row.alertGrade) }"></div>
+                  {{ row.alertGrade }}
                 </div>
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="device" label="设备" width="150" />
-          <el-table-column prop="description" label="描述" />
+          <el-table-column prop="deviceName" label="设备" width="150" />
+          <el-table-column prop="alertMsg" label="描述" />
           <el-table-column label="操作" width="100">
             <template #default="{ row }">
               <el-button type="text" size="small" @click="handleDetail(row)">详情</el-button>
@@ -72,6 +72,13 @@ import { Monitor, Search, Setting, DataAnalysis } from '@element-plus/icons-vue'
 import { ref, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import { Warning, Bell, CircleCheck, InfoFilled } from '@element-plus/icons-vue'
+import axios from 'axios'
+import { useUserStore } from '../store/user'
+import { useRouter } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
+
+const router = useRouter()
+const userStore = useUserStore()
 
 const timeRange = ref('day')
 const trendChartRef = ref(null)
@@ -86,20 +93,15 @@ const alertStats = ref([
 ])
 
 // 告警列表数据
-const alertList = ref([
-  { time: '2024-01-20 10:30:00', level: '严重', device: 'Server-01', description: '服务器CPU使用率超过95%' },
-  { time: '2024-01-20 10:25:00', level: '高级', device: 'Switch-02', description: '网络带宽使用率达到峰值' },
-  { time: '2024-01-20 10:20:00', level: '中级', device: 'Router-03', description: '设备温度异常' },
-  { time: '2024-01-20 10:15:00', level: '低级', device: 'Server-04', description: '磁盘使用空间超过80%' }
-])
+const alertList = ref([])
 
 // 获取告警级别对应的颜色
 const getLevelColor = (level) => {
   const colors = {
-    '严重': '#cf222e',
-    '高级': '#bc4c00',
-    '中级': '#9a6700',
-    '低级': '#1a7f37'
+    '严重告警': '#cf222e',
+    '高级告警': '#bc4c00',
+    '中级告警': '#9a6700',
+    '低级告警': '#1a7f37'
   }
   return colors[level] || '#1a7f37'
 }
@@ -107,37 +109,132 @@ const getLevelColor = (level) => {
 // 获取告警级别对应的Tag类型
 const getLevelType = (level) => {
   const types = {
-    '严重': 'danger',
-    '高级': 'warning',
-    '中级': '',
-    '低级': 'success'
+    '严重告警': 'danger',
+    '高级告警': 'warning',
+    '中级告警': '',
+    '低级告警': 'success'
   }
   return types[level] || 'info'
 }
 
-// 刷新告警列表
-const refreshAlerts = () => {
-  // TODO: 实现告警数据刷新逻辑
-  console.log('刷新告警列表')
-}
-
 // 查看告警详情
-const handleDetail = (row) => {
-  console.log('查看告警详情:', row)
+const handleDetail = async (row) => {
+  try {
+    const token = userStore.token
+    if (!token) {
+      ElMessage.error('未登录或登录已过期，请重新登录')
+      router.push('/login')
+      return
+    }
+
+    ElMessageBox.alert(
+      `<div>
+        <p><strong>告警ID：</strong>${row.id}</p>
+        <p><strong>告警级别：</strong>${row.alertGrade}</p>
+        <p><strong>设备名称：</strong>${row.deviceName}</p>
+        <p><strong>源IP：</strong>${row.sourceIp}</p>
+        <p><strong>告警时间：</strong>${row.alertTime}</p>
+        <p><strong>告警描述：</strong>${row.alertMsg}</p>
+      </div>`,
+      '告警详情',
+      {
+        dangerouslyUseHTMLString: true,
+        confirmButtonText: '确定',
+        customClass: 'alert-detail-dialog'
+      }
+    )
+  } catch (error) {
+    console.error('查看告警详情失败:', error)
+    ElMessage.error('查看告警详情失败')
+  }
 }
 
-// 初始化趋势图表
-const initTrendChart = () => {
-  if (!trendChartRef.value) return
+// 刷新告警列表
+const refreshAlerts = async () => {
+  try {
+    const token = userStore.token
+    if (!token) {
+      ElMessage.error('未登录或登录已过期，请重新登录')
+      router.push('/login')
+      return
+    }
 
-  trendChart = echarts.init(trendChartRef.value)
+    const response = await axios.get('/api/alert/queryPageAlert', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (response.data.code === 200) {
+      alertList.value = response.data.data
+    } else {
+      ElMessage.error(response.data.message || '获取告警列表失败')
+    }
+  } catch (error) {
+    console.error('获取告警列表失败:', error)
+    if (error.response && error.response.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+      router.push('/login')
+    } else {
+      ElMessage.error('获取告警列表失败')
+    }
+  }
+}
+
+// 图表数据
+const chartData = ref({
+  series: [],
+  xaxis: {
+    day: [],
+    week: [],
+    month: []
+  }
+})
+
+// 获取趋势图数据
+const fetchChartData = async () => {
+  try {
+    const token = userStore.token
+    if (!token) {
+      ElMessage.error('未登录或登录已过期，请重新登录')
+      router.push('/login')
+      return
+    }
+
+    const response = await axios.get('/api/alert/queryTheTrendChart', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (response.data.code === 200) {
+      chartData.value = response.data.data
+      updateChart()
+    } else {
+      ElMessage.error(response.data.message || '获取趋势图数据失败')
+    }
+  } catch (error) {
+    console.error('获取趋势图数据失败:', error)
+    if (error.response && error.response.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+      router.push('/login')
+    } else {
+      ElMessage.error('获取趋势图数据失败')
+    }
+  }
+}
+
+// 更新图表
+const updateChart = () => {
+  if (!trendChart || !chartData.value) return
+
   const option = {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'cross' }
     },
     legend: {
-      data: ['严重告警', '高级告警', '中级告警', '低级告警'],
+      data: chartData.value.series.map(item => item.name),
       bottom: 0
     },
     grid: {
@@ -149,72 +246,117 @@ const initTrendChart = () => {
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00']
+      data: chartData.value.xaxis[timeRange.value]
     },
     yAxis: {
       type: 'value'
     },
-    series: [
-      {
-        name: '严重告警',
+    series: chartData.value.series.map(item => {
+      return {
+        name: item.name,
         type: 'line',
         stack: 'Total',
         areaStyle: {},
         emphasis: { focus: 'series' },
-        data: [2, 3, 5, 4, 3, 2, 1],
-        itemStyle: { color: '#cf222e' }
-      },
-      {
-        name: '高级告警',
-        type: 'line',
-        stack: 'Total',
-        areaStyle: {},
-        emphasis: { focus: 'series' },
-        data: [5, 7, 10, 8, 6, 5, 4],
-        itemStyle: { color: '#bc4c00' }
-      },
-      {
-        name: '中级告警',
-        type: 'line',
-        stack: 'Total',
-        areaStyle: {},
-        emphasis: { focus: 'series' },
-        data: [10, 12, 15, 13, 11, 9, 8],
-        itemStyle: { color: '#9a6700' }
-      },
-      {
-        name: '低级告警',
-        type: 'line',
-        stack: 'Total',
-        areaStyle: {},
-        emphasis: { focus: 'series' },
-        data: [15, 18, 20, 17, 15, 13, 12],
-        itemStyle: { color: '#1a7f37' }
+        data: item[timeRange.value],
+        itemStyle: { color: getLevelColor(item.name) }  // 直接使用完整的告警级别名称
       }
-    ]
+    })
   }
 
   trendChart.setOption(option)
 }
 
-// 监听时间范围变化
-const handleTimeRangeChange = () => {
-  // TODO: 根据选择的时间范围更新图表数据
-  console.log('时间范围改变:', timeRange.value)
+// 初始化趋势图表
+const initTrendChart = () => {
+  if (!trendChartRef.value) return
+
+  trendChart = echarts.init(trendChartRef.value)
+  fetchChartData() // 获取初始数据
 }
 
+// 监听时间范围变化
+const handleTimeRangeChange = () => {
+  updateChart() // 更新图表显示
+}
+
+// 获取告警统计数据
+const fetchAlertStats = async () => {
+  try {
+    const token = userStore.token
+    if (!token) {
+      ElMessage.error('未登录或登录已过期，请重新登录')
+      router.push('/login')
+      return
+    }
+
+    const response = await axios.get('/api/alert/queryAlertCount', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (response.data.code === 200) {
+      // 将后端数据转换为数组格式
+      alertStats.value = Object.values(response.data.data)
+    } else {
+      ElMessage.error(response.data.message || '获取告警统计数据失败')
+    }
+  } catch (error) {
+    console.error('获取告警统计数据失败:', error)
+    if (error.response && error.response.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+      router.push('/login')
+    } else {
+      ElMessage.error('获取告警统计数据失败')
+    }
+  }
+}
+
+// 定时器变量
+let refreshTimer = null
+
+// 启动定时刷新
+const startAutoRefresh = () => {
+// 先清除可能存在的定时器
+if (refreshTimer) {
+clearInterval(refreshTimer)
+}
+
+// 设置新的定时器，每5秒刷新一次
+refreshTimer = setInterval(() => {
+fetchAlertStats()    // 刷新告警统计
+fetchChartData()     // 刷新趋势图
+refreshAlerts()      // 刷新告警列表
+}, 5000)
+}
+
+// 停止定时刷新
+const stopAutoRefresh = () => {
+if (refreshTimer) {
+clearInterval(refreshTimer)
+refreshTimer = null
+}
+}
+
+// 组件挂载时初始化
 onMounted(() => {
-  initTrendChart()
-  window.addEventListener('resize', () => {
-    trendChart?.resize()
-  })
+fetchAlertStats()
+initTrendChart()
+refreshAlerts()
+startAutoRefresh() // 启动自动刷新
+window.addEventListener('resize', () => {
+trendChart?.resize()
+})
 })
 
+// 组件卸载时清理
 onUnmounted(() => {
-  window.removeEventListener('resize', () => {
-    trendChart?.resize()
-  })
-  trendChart?.dispose()
+stopAutoRefresh() // 停止自动刷新
+window.removeEventListener('resize', () => {
+trendChart?.resize()
+})
+trendChart?.dispose()
 })
 </script>
 
@@ -290,22 +432,26 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+  padding: 8px 0;
 }
 
 .stat-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .stat-value {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 600;
   line-height: 1.25;
-  margin-bottom: 4px;
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 15px;
   color: #57606a;
+  font-weight: 500;
 }
 
 .chart-section {
@@ -370,5 +516,20 @@ onUnmounted(() => {
 
 :deep(.el-table td) {
   color: #57606a;
+}
+
+:deep(.alert-detail-dialog) {
+  .el-message-box__content {
+    padding: 20px;
+  }
+  p {
+    margin: 8px 0;
+    line-height: 1.5;
+  }
+  strong {
+    color: #24292f;
+    font-weight: 600;
+    margin-right: 8px;
+  }
 }
 </style>

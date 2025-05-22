@@ -3,7 +3,7 @@
     <el-card class="log-card">
       <template #header>
         <div class="card-header">
-          <h3>日志查询</h3>
+          <span>日志查询</span>
         </div>
       </template>
       
@@ -52,14 +52,14 @@
       <div class="result-section">
         <el-table :data="logData" style="width: 100%" border v-loading="loading">
           <el-table-column prop="timestamp" label="时间" width="280" align="center"></el-table-column>
-          <el-table-column prop="logLevel" label="级别" width="150" align="center">
+          <el-table-column prop="logLevel" label="级别" width="180" align="center">
             <template #default="{ row }">
               <el-tag :type="getLogLevelType(row.logLevel)">{{ row.logLevel }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="deviceName" label="设备名称" width="120" align="center"></el-table-column>
+          <el-table-column prop="deviceName" label="设备名称" width="153" align="center"></el-table-column>
           <el-table-column prop="eventType" label="事件类型" width="250" align="center"></el-table-column>
-          <el-table-column label="操作" width="150" fixed="right" align="center"> 
+          <el-table-column label="操作" width="200" fixed="right" align="center"> 
             <template #default="{ row }">
               <el-button type="primary" size="big" @click="showLogDetail(row)">
                 <el-icon><View /></el-icon>
